@@ -5,9 +5,15 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('lms.urls')),          # главная страница и прочее
-    path('api/', include('lms.urls')),     # API под префиксом /api/
+
+    # API
+    path('api/', include('lms.urls')),
+    path('api/users/', include('users.urls')),
+
+    # Главная страница
+    path('', include('lms.urls')),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
 
