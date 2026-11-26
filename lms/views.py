@@ -1,9 +1,13 @@
 from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, generics
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from users.permissions import IsModer, IsOwner
-from .models import Course, Lesson
+from lms.paginators import LmsPagination
+from .models import Course, Lesson, Subscription
 from .serializers import CourseSerializer, CourseDetailSerializer, LessonSerializer
 
 
@@ -20,12 +24,9 @@ def index(request):
 
 
 class CourseViewSet(viewsets.ModelViewSet):
-    """CRUD курсов с разграничением прав:
-    - модератор: смотреть и редактировать любые, создавать и удалять — нет;
-    - обычный пользователь: полный доступ к своим, к чужим — нет;
-    - неавторизованный: нет доступа ни к чему.
-    """
+    """CRUD курсов с разграничением прав."""
     serializer_class = CourseSerializer
+    pagination_class = LmsPagination
 
     def get_queryset(self):
         if self.request.user.groups.filter(name='moderators').exists():
@@ -57,6 +58,7 @@ class CourseViewSet(viewsets.ModelViewSet):
 class LessonListApiView(generics.ListCreateAPIView):
     """GET (список) и POST (создание)."""
     serializer_class = LessonSerializer
+    pagination_class = LmsPagination
 
     def get_queryset(self):
         if self.request.user.groups.filter(name='moderators').exists():
@@ -67,7 +69,7 @@ class LessonListApiView(generics.ListCreateAPIView):
 
     def get_permissions(self):
         if self.request.method == 'POST':
-            return [IsAuthenticated(), ~IsModer()]
+            return [IsAuthenticated(), (~IsModer)()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
@@ -87,6 +89,23 @@ class LessonDetailApiView(generics.RetrieveUpdateDestroyAPIView):
         if self.request.method == 'DELETE':
             return [IsAuthenticated(), IsOwner()]
         if self.request.method in ('PUT', 'PATCH'):
-            return [IsAuthenticated(), IsModer() | IsOwner()]
+            return [IsAuthenticated(), (IsModer | IsOwner)()]
         return [IsAuthenticated()]
 
+
+class SubscriptionAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, *args, **kwargs):
+        user = self.request.user
+        course_id = self.request.data.get('course_id')
+        course_item = get_object_or_404(Course, pk=course_id)
+
+        subs_item = Subscription.objects.filter(user=user, course=course_item)
+        if subs_item.exists():
+            subs_item.delete()
+            message = 'подписка удалена'
+        else:
+            Subscription.objects.create(user=user, course=course_item)
+            message = 'подписка добавлена'
+        return Response({'message': message})
