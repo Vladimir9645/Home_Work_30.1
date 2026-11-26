@@ -2,6 +2,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import AllowAny
 
 from .filters import PaymentFilter
 from .models import Payment, User
@@ -50,3 +51,8 @@ class UserProfileDetailView(generics.RetrieveUpdateAPIView):
         if int(self.kwargs['pk']) == self.request.user.id:
             return UserProfileSerializer
         return PublicUserSerializer
+
+class UserRegisterView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserRegisterSerializer
+    permission_classes = [AllowAny]
